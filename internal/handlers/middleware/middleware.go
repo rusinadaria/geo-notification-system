@@ -7,7 +7,7 @@ import (
 
 func APIKeyAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		apiKey := r.Header.Get("X-API-Key")
+		apiKey := r.Header.Get("API-Key")
 		expected := os.Getenv("OPERATOR_API_KEY")
 
 		if apiKey == "" || apiKey != expected {

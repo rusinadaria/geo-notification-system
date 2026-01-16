@@ -7,12 +7,8 @@ CREATE TABLE incidents (
     location        GEOGRAPHY(POINT, 4326) NOT NULL,
     radius_meters   INTEGER NOT NULL CHECK (radius_meters > 0),
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
-    starts_at       TIMESTAMPTZ,
-    ends_at         TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-    CHECK (starts_at IS NULL OR ends_at IS NULL OR starts_at <= ends_at)
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- CREATE INDEX idx_incidents_location ON incidents USING GIST (location);

@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi"
 	"github.com/rusinadaria/geo-notification-system/internal/common"
 	"github.com/rusinadaria/geo-notification-system/internal/models"
-	"net/http"
-	"encoding/json"
-	"strconv"
-	"github.com/go-chi/chi"
 )
 
 
@@ -21,26 +23,26 @@ func (h *Handler) CheckLocation (w http.ResponseWriter, r *http.Request) {
     }
 	// 2. Валидируем
 
-	if checkReq.UserID == "" {
+	if checkReq.UserID <= 0 {
         // return errors.New("user_id is required")
-		common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный запрос")
+		common.WriteErrorResponse(w, http.StatusBadRequest, "Пустой user_id")
         return
     }
     if checkReq.Lat < -90 || checkReq.Lat > 90 {
         // return errors.New("invalid latitude")
-		common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный запрос")
+		common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный или пустой lat")
         return
     }
     if checkReq.Lon < -180 || checkReq.Lon > 180 {
         // return errors.New("invalid longitude")
-		common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный запрос")
+		common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный или пустой lan")
         return
     }
 
-	// 3. Применяем алгоритм дял нахождения ближайших зон
+	// 3. Применяем алгоритм для нахождения ближайших зон
 	incidents, err := h.services.CheckLocation(checkReq)
 	if err != nil {
-		common.WriteErrorResponse(w, http.StatusInternalServerError, "Не удалось получить информацию о пользователе")
+		common.WriteErrorResponse(w, http.StatusInternalServerError, "Не удалось получить информацию о ближайших опасных зонах")
 		return
 	}
 
@@ -50,18 +52,7 @@ func (h *Handler) CheckLocation (w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(incidents)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-func (h *Handler) CreateIncidentHandler (w http.ResponseWriter, r *http.Request) { // Получить информацию о монетках, инвентаре и истории транзакций.
+func (h *Handler) CreateIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	var incidentData models.IncidentRequest
@@ -72,7 +63,7 @@ func (h *Handler) CreateIncidentHandler (w http.ResponseWriter, r *http.Request)
 
 	err := h.services.CreateIncident(incidentData)
 	if err != nil {
-		common.WriteErrorResponse(w, http.StatusInternalServerError, "Не удалось получить информацию о пользователе")
+		common.WriteErrorResponse(w, http.StatusInternalServerError, "Не удалось добавить инцидент")
 		return
 	}
 
@@ -80,37 +71,31 @@ func (h *Handler) CreateIncidentHandler (w http.ResponseWriter, r *http.Request)
 	// json.NewEncoder(w).Encode(info)
 }
 
-// func (h *Handler) ListIncidents(w http.ResponseWriter, r *http.Request) {
-// 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-// 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+func (h *Handler) ListIncidents(w http.ResponseWriter, r *http.Request) {
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
 
-// 	if limit <= 0 {
-// 		limit = 10
-// 	}
-// 	if offset < 0 {
-// 		offset = 0
-// 	}
+	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+	if err != nil || offset < 0 {
+		offset = 0
+	}
 
-// 	list := make([]Incident, 0)
-// 	for _, inc := range incidents {
-// 		if inc.Active {
-// 			list = append(list, inc)
-// 		}
-// 	}
+	list, err := h.services.GetAllIncidents(limit, offset)
+	if err != nil {
+		common.WriteErrorResponse(w, http.StatusInternalServerError, "Не удалось получить инциденты")
+		return
+	}
 
-// 	end := offset + limit
-// 	if offset > len(list) {
-// 		offset = len(list)
-// 	}
-// 	if end > len(list) {
-// 		end = len(list)
-// 	}
-
-// 	json.NewEncoder(w).Encode(list[offset:end])
-// }
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(list)
+}
 
 func (h *Handler) GetIncident(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	fmt.Println(id)
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
@@ -122,10 +107,6 @@ func (h *Handler) GetIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if !ok || !incident.Active {
-	// 	http.NotFound(w, r)
-	// 	return
-	// }
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(incident)
 }
@@ -144,17 +125,16 @@ func (h *Handler) UpdateIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if newIncident.RadiusMeters <= 0 {
+		http.Error(w, "radius_meters must be > 0", http.StatusBadRequest)
+		return
+	}
+
 	incident, err := h.services.UpdateIncident(id, newIncident)
 	if err != nil {
 		common.WriteErrorResponse(w, http.StatusInternalServerError, "Не удалось изменить инцидент по id")
 		return
 	}
-
-	// incident, ok := incidents[id]
-	// if !ok || !incident.Active {
-	// 	http.NotFound(w, r)
-	// 	return
-	// }
 
 	json.NewEncoder(w).Encode(incident)
 }
@@ -174,4 +154,30 @@ func (h *Handler) DeleteIncident(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+
+    resp, err := h.services.GetIncidentStats(ctx)
+    if err != nil {
+        http.Error(w, "failed to get stats", http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(resp)
+}
+
+func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
+	resp := h.services.HealthService.Check(r.Context())
+
+    code := http.StatusOK
+    if resp.Status != models.HealthOK {
+        code = http.StatusServiceUnavailable
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(code)
+    json.NewEncoder(w).Encode(resp)
 }

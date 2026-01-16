@@ -6,10 +6,11 @@ import (
 	_"github.com/lib/pq"
 	"log"
 	"log/slog"
+	"github.com/rusinadaria/geo-notification-system/internal/config"
 )
 
-func ConnectDatabase(storage_path string, logger *slog.Logger) (*sqlx.DB, error) {
-	db, err := sqlx.Open("postgres", "user=postgres password=root dbname=geo sslmode=disable")
+func ConnectDatabase(cfg *config.Config, logger *slog.Logger) (*sqlx.DB, error) {
+	db, err := sqlx.Open("postgres", cfg.DBPath)
 	if err != nil {
 		log.Fatal("Failed connect database")
 		return nil, err

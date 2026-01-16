@@ -1,16 +1,24 @@
-package cmd
+package main
 
 import (
+	"context"
 	"log"
 	"log/slog"
-	"github.com/rusinadaria/geo-notification-system/internal/config"
-	"github.com/rusinadaria/geo-notification-system/internal/handlers"
-	"github.com/rusinadaria/geo-notification-system/internal/repository"
-	"github.com/rusinadaria/geo-notification-system/internal/services"
 	"net/http"
 	"os"
 
+	"github.com/rusinadaria/geo-notification-system/internal/config"
+	"github.com/rusinadaria/geo-notification-system/internal/handlers"
+
+	// "github.com/rusinadaria/geo-notification-system/internal/queue"
+	"github.com/rusinadaria/geo-notification-system/internal/repository"
+	redisrepo "github.com/rusinadaria/geo-notification-system/internal/repository/redis"
+	"github.com/rusinadaria/geo-notification-system/internal/services"
+
 	// "github.com/ilyakaznacheev/cleanenv"
+
+	"strconv"
+
 	_ "github.com/lib/pq"
 )
 
@@ -18,16 +26,28 @@ func main() {
 	logger := configLogger()
 	cfg := config.GetConfig()
 
-	db, err := repository.ConnectDatabase(cfg.DBPath, logger)
+	db, err := repository.ConnectDatabase(cfg, logger)
 	if err != nil {
 		log.Fatal("Не удалось подключиться к базе данных:", err)
 	}
 
-	repo := repository.NewRepository(db)
-	srv := services.NewService(repo)
+	ctx := context.Background()
+	redisClient, err := redisrepo.NewClient(ctx, cfg.Redis)
+	if err != nil {
+		log.Fatal("Не удалось подключиться к redis:", err)
+	}
+	// client := queue.NewWebhookQueue("redisAddr")
+
+	windowMin, err := strconv.Atoi(os.Getenv("STATS_TIME_WINDOW_MINUTES"))
+	if err != nil {
+		windowMin = 15
+	}
+
+	repo := repository.NewRepository(db, redisClient)
+	srv := services.NewService(repo, windowMin)
 	handler := handlers.NewHandler(srv)
 
-	err = http.ListenAndServe(cfg.Port, handler.InitRoutes(logger))
+	err = http.ListenAndServe(":8080", handler.InitRoutes(cfg, logger))
 	if err != nil {
 		log.Fatal("Не удалось запустить сервер:", err)
 	}
