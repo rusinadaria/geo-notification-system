@@ -7,19 +7,14 @@ import (
 	"net/http"
 	"os"
 
+	_ "github.com/lib/pq"
 	"github.com/rusinadaria/geo-notification-system/internal/config"
 	"github.com/rusinadaria/geo-notification-system/internal/handlers"
-
-	// "github.com/rusinadaria/geo-notification-system/internal/queue"
 	"github.com/rusinadaria/geo-notification-system/internal/repository"
 	redisrepo "github.com/rusinadaria/geo-notification-system/internal/repository/redis"
 	"github.com/rusinadaria/geo-notification-system/internal/services"
-
-	// "github.com/ilyakaznacheev/cleanenv"
-
+	"github.com/rusinadaria/geo-notification-system/internal/worker"
 	"strconv"
-
-	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -36,7 +31,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Не удалось подключиться к redis:", err)
 	}
-	// client := queue.NewWebhookQueue("redisAddr")
 
 	windowMin, err := strconv.Atoi(os.Getenv("STATS_TIME_WINDOW_MINUTES"))
 	if err != nil {
@@ -44,7 +38,12 @@ func main() {
 	}
 
 	repo := repository.NewRepository(db, redisClient)
-	srv := services.NewService(repo, windowMin)
+	queue := redisrepo.NewWebhookQueue(redisClient.Client())
+	worker := worker.NewWebhookWorker(redisClient.Client(), cfg.WebhookURL)
+
+	go worker.Run(context.Background())
+
+	srv := services.NewService(repo, windowMin, queue)
 	handler := handlers.NewHandler(srv)
 
 	err = http.ListenAndServe(":8080", handler.InitRoutes(cfg, logger))
@@ -58,12 +57,12 @@ func configLogger() *slog.Logger {
 
 	f, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-        slog.Error("Unable to open a file for writing")
-    }
+		slog.Error("Unable to open a file for writing")
+	}
 
 	opts := &slog.HandlerOptions{
-        Level: slog.LevelDebug,
-    }
+		Level: slog.LevelDebug,
+	}
 
 	logger = slog.New(slog.NewJSONHandler(f, opts))
 	return logger

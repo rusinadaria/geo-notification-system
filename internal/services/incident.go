@@ -1,66 +1,60 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"errors"
-	"log"
-	// "mime/quotedprintable"
-	"context"
-	"time"
 	"github.com/rusinadaria/geo-notification-system/internal/models"
-	// "github.com/rusinadaria/geo-notification-system/internal/queue"
 	"github.com/rusinadaria/geo-notification-system/internal/repository"
+	"log"
+	"time"
 )
 
 type IncidentService struct {
-	repo repository.Incident
-	windowMin int	
+	repo         repository.Incident
+	cache        repository.IncidentCache
+	windowMin    int
+	webhookQueue WebhookQueue
 }
 
-func NewIncidentService(repo repository.Incident, windowMin int) *IncidentService {
-	return &IncidentService{repo: repo, windowMin: windowMin}
+func NewIncidentService(repo repository.Incident, windowMin int, webhookQueue WebhookQueue) *IncidentService {
+	return &IncidentService{repo: repo, windowMin: windowMin, webhookQueue: webhookQueue}
 }
 
 var ErrIncidentAlreadyExists = errors.New("incident already exists")
 
-func (s *IncidentService) CheckLocation(checkReq models.LocationCheckRequest) (models.LocationCheckResponse, error) {
+func (s *IncidentService) CheckLocation(ctx context.Context, checkReq models.LocationCheckRequest) (models.LocationCheckResponse, error) {
 
 	nearbyResp, err := s.repo.CheckLocation(checkReq)
+
 	if err != nil {
 		log.Println(err)
 		return models.LocationCheckResponse{}, err
 	}
 
-	err = s.repo.SaveCheck(checkReq.UserID, checkReq.Lat, checkReq.Lon, true) // ФУНКЦИЯ СОХРАНЕНИЯ ФАКТА ПРОВЕРКИ
+	err = s.repo.SaveCheck(checkReq.UserID, checkReq.Lat, checkReq.Lon, true)
 	if err != nil {
 		log.Println(err)
 		return models.LocationCheckResponse{}, err
-    }
+	}
 
-	// if nearbyResp.Danger {
-	// 	err := s.webhookQueue.Enqueue(models.WebhookPayload{
-	// 		Event:     "danger_detected",
-	// 		UserID:    checkReq.UserID,
-	// 		Lat:       checkReq.Lat,
-	// 		Lon:       checkReq.Lon,
-	// 		Incidents: nearbyResp.Incidents,
-	// 		CheckedAt: time.Now().UTC(),
-	// 	})
+	if nearbyResp.Danger {
+		job := models.WebhookPayload{
+			Event:     "danger_detected",
+			UserID:    checkReq.UserID,
+			Lat:       checkReq.Lat,
+			Lon:       checkReq.Lon,
+			Incidents: nearbyResp.Incidents,
+			CheckedAt: time.Now().UTC(),
+		}
 
-	// 	if err != nil {
-	// 		log.Println("failed to enqueue webhook:", err)
-	// 	}
-	// }
+		_ = s.webhookQueue.Enqueue(ctx, job)
+	}
 
 	return nearbyResp, nil
 }
 
 func (s *IncidentService) CreateIncident(req models.IncidentRequest) error {
-	// id, err := s.repo.GetIncident(req)
-	// if id != 0 {
-	// 	return ErrIncidentAlreadyExists
-	// }
-
 	err := s.repo.CreateIncident(req)
 	if err != nil {
 		return err
@@ -112,21 +106,36 @@ func (s *IncidentService) DeleteIncident(id int) error {
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
 func (s *IncidentService) GetIncidentStats(ctx context.Context) (models.IncidentStatsResponse, error) {
 
-    window := time.Duration(s.windowMin) * time.Minute
+	window := time.Duration(s.windowMin) * time.Minute
 
-    count, err := s.repo.GetDangerStats(ctx, window)
-    if err != nil {
-        return models.IncidentStatsResponse{}, err
-    }
+	count, err := s.repo.GetDangerStats(ctx, window)
+	if err != nil {
+		return models.IncidentStatsResponse{}, err
+	}
 
-    return models.IncidentStatsResponse{
-        UserCount:    count,
-        WindowMinute: s.windowMin,
-    }, nil
+	return models.IncidentStatsResponse{
+		UserCount:    count,
+		WindowMinute: s.windowMin,
+	}, nil
+}
+
+func (s *IncidentService) GetActiveIncidents(ctx context.Context) ([]models.IncidentResponse, error) {
+	if cached, err := s.cache.GetActive(ctx); err == nil && cached != nil {
+		return cached, nil
+	}
+
+	incidents, err := s.repo.GetActiveIncidents(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = s.cache.SetActive(ctx, incidents, 30*time.Second)
+
+	return incidents, nil
 }

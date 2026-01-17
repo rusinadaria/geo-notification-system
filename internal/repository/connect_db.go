@@ -1,12 +1,11 @@
 package repository
 
 import (
-	// "database/sql"
 	"github.com/jmoiron/sqlx"
-	_"github.com/lib/pq"
+	_ "github.com/lib/pq"
+	"github.com/rusinadaria/geo-notification-system/internal/config"
 	"log"
 	"log/slog"
-	"github.com/rusinadaria/geo-notification-system/internal/config"
 )
 
 func ConnectDatabase(cfg *config.Config, logger *slog.Logger) (*sqlx.DB, error) {

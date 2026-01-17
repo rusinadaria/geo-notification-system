@@ -1,25 +1,28 @@
 package repository
 
 import (
-	// "database/sql"
 	"context"
-	"time"
 	"github.com/jmoiron/sqlx"
 	"github.com/rusinadaria/geo-notification-system/internal/models"
-	// "github.com/redis/go-redis/v9"
+	"time"
 )
 
-
 type Incident interface {
-	// GetIncident(req models.IncidentRequest) (int, error)
 	CheckLocation(checkReq models.LocationCheckRequest) (models.LocationCheckResponse, error)
-	SaveCheck(userID int, lat, lon float64, hasDanger bool,) error
+	SaveCheck(userID int, lat, lon float64, hasDanger bool) error
 	CreateIncident(incident models.IncidentRequest) error
 	GetAllIncidents(limit, offset int) ([]models.IncidentResponse, error)
 	GetIncidentById(id int) (models.IncidentResponse, error)
 	UpdateIncident(id int, req models.IncidentRequest) (models.IncidentResponse, error)
 	DeleteIncident(id int) error
 	GetDangerStats(ctx context.Context, window time.Duration) (int64, error)
+	GetActiveIncidents(ctx context.Context) ([]models.IncidentResponse, error)
+}
+
+type IncidentCache interface {
+	GetActive(ctx context.Context) ([]models.IncidentResponse, error)
+	SetActive(ctx context.Context, incidents []models.IncidentResponse, ttl time.Duration) error
+	InvalidateActive(ctx context.Context) error
 }
 
 type DB interface {
@@ -29,7 +32,6 @@ type DB interface {
 type Redis interface {
 	Ping(ctx context.Context) error
 }
-
 
 type Repository struct {
 	Incident

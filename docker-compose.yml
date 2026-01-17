@@ -17,7 +17,6 @@ services:
         - internal
   
   db:
-    # image: postgres:15
     image: postgis/postgis:15-3.4
     container_name: postgres
     environment:
@@ -38,7 +37,6 @@ services:
       - internal
 
   test-db:
-    # image: postgres:15
     image: postgis/postgis:15-3.4
     container_name: test-postgres
     environment:

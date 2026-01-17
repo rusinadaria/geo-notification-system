@@ -5,14 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
-	"log"
 	"github.com/jmoiron/sqlx"
 	"github.com/rusinadaria/geo-notification-system/internal/models"
+	"log"
+	"time"
 )
 
 type IncidentRepo struct {
-	// db *sql.DB
 	db *sqlx.DB
 }
 
@@ -41,60 +40,60 @@ func (r *IncidentRepo) CheckLocation(checkReq models.LocationCheckRequest) (mode
     `
 
 	rows, err := r.db.Query(
-        query,
-        checkReq.Lon,
-        checkReq.Lat,
-    )
+		query,
+		checkReq.Lon,
+		checkReq.Lat,
+	)
 
 	if err != nil {
 		log.Println(err)
-        return models.LocationCheckResponse{}, err
-    }
-    defer rows.Close()
+		return models.LocationCheckResponse{}, err
+	}
+	defer rows.Close()
 
-    resp := models.LocationCheckResponse{}
+	resp := models.LocationCheckResponse{}
 
-    for rows.Next() {
-        var inc models.NearbyIncidentResponse
+	for rows.Next() {
+		var inc models.NearbyIncidentResponse
 
-        if err := rows.Scan(
-            &inc.ID,
-            &inc.Type,
-            &inc.DistanceMeters,
-        ); err != nil {
+		if err := rows.Scan(
+			&inc.ID,
+			&inc.Type,
+			&inc.DistanceMeters,
+		); err != nil {
 			log.Println(err)
-            return models.LocationCheckResponse{}, err
-        }
+			return models.LocationCheckResponse{}, err
+		}
 
-        resp.Incidents = append(resp.Incidents, inc)
-    }
+		resp.Incidents = append(resp.Incidents, inc)
+	}
 
-    if err := rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		log.Println(err)
-        return models.LocationCheckResponse{}, err
-    }
+		return models.LocationCheckResponse{}, err
+	}
 
-    resp.Danger = len(resp.Incidents) > 0
+	resp.Danger = len(resp.Incidents) > 0
 
-    return resp, nil
+	return resp, nil
 }
 
-func (r *IncidentRepo) SaveCheck(userID int, lat, lon float64, hasDanger bool,) error {
+func (r *IncidentRepo) SaveCheck(userID int, lat, lon float64, hasDanger bool) error {
 	const query = `
         INSERT INTO location_checks (user_id, location, has_danger)
         VALUES ($1, ST_MakePoint($2, $3)::geography, $4)
     `
 
-    _, err := r.db.ExecContext(
+	_, err := r.db.ExecContext(
 		context.Background(),
-        query,
-        userID,
-        lon,
-        lat,
-        hasDanger,
-    )
+		query,
+		userID,
+		lon,
+		lat,
+		hasDanger,
+	)
 
-    return err
+	return err
 }
 
 func (r *IncidentRepo) CreateIncident(req models.IncidentRequest) error {
@@ -119,18 +118,16 @@ func (r *IncidentRepo) CreateIncident(req models.IncidentRequest) error {
 		query,
 		req.Type,
 		req.Description,
-		req.Longitude,     // $3
-		req.Latitude,      // $4
-		req.RadiusMeters,  // radius_meters
-		req.Active,        // is_active
-		now,               // created_at
-		now,               // updated_at
+		req.Longitude,
+		req.Latitude,
+		req.RadiusMeters,
+		req.Active,
+		now,
+		now,
 	).Scan(&id)
 
 	if err != nil {
-		// fmt.Println(err)
 		log.Println(err)
-		// return fmt.Errorf("не удалось подключиться к базе данных: %w", err)
 		return err
 	}
 
@@ -197,7 +194,7 @@ func (r *IncidentRepo) GetIncidentById(id int) (models.IncidentResponse, error) 
 		FROM incidents
 		WHERE id = $1
 	`
-	
+
 	var inc models.IncidentResponse
 	err := r.db.Get(&inc, query, id)
 	if err != nil {
@@ -258,7 +255,6 @@ func (r *IncidentRepo) UpdateIncident(
 	return incident, nil
 }
 
-
 func (r *IncidentRepo) DeleteIncident(id int) error {
 	query := `
 		UPDATE incidents
@@ -288,11 +284,11 @@ func (r *IncidentRepo) DeleteIncident(id int) error {
 }
 
 func (r *IncidentRepo) GetDangerStats(
-    ctx context.Context,
-    window time.Duration,
+	ctx context.Context,
+	window time.Duration,
 ) (int64, error) {
 
-    const query = `
+	const query = `
         SELECT COUNT(DISTINCT user_id)
         FROM location_checks
         WHERE
@@ -300,13 +296,25 @@ func (r *IncidentRepo) GetDangerStats(
             AND created_at >= now() - $1::interval
     `
 
-    interval := fmt.Sprintf("%d seconds", int(window.Seconds()))
+	interval := fmt.Sprintf("%d seconds", int(window.Seconds()))
 
-    var count int64
-    err := r.db.QueryRowContext(ctx, query, interval).Scan(&count)
-    if err != nil {
-        return 0, err
-    }
+	var count int64
+	err := r.db.QueryRowContext(ctx, query, interval).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
 
-    return count, nil
+	return count, nil
+}
+
+func (r *IncidentRepo) GetActiveIncidents(ctx context.Context) ([]models.IncidentResponse, error) {
+	const query = `
+        SELECT id, title, status, created_at
+        FROM incidents
+        WHERE status = 'active'
+        ORDER BY created_at DESC
+    `
+	var incidents []models.IncidentResponse
+	err := r.db.SelectContext(ctx, &incidents, query)
+	return incidents, err
 }

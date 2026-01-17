@@ -10,5 +10,7 @@
 
 ### Примеры запросов
 
-### Миграции
+https://.postman.co/workspace/My-Workspace~3c8451ae-35ab-48c9-883c-e99ac7b645e7/collection/31630341-7e3d7054-5d91-4f40-a6d4-6a856ab420ab?action=share&creator=31630341
 
+### Миграции
+Запускаются в docker-compose файле, дополнительно ничего запускать не нужно

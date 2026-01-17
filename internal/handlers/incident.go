@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,42 +12,33 @@ import (
 	"github.com/rusinadaria/geo-notification-system/internal/models"
 )
 
-
-func (h *Handler) CheckLocation (w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CheckLocation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
-	// 1. Получаем координаты
 	var checkReq models.LocationCheckRequest
 	if err := json.NewDecoder(r.Body).Decode(&checkReq); err != nil {
-        common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный запрос")
-        return
-    }
-	// 2. Валидируем
+		common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный запрос")
+		return
+	}
 
 	if checkReq.UserID <= 0 {
-        // return errors.New("user_id is required")
 		common.WriteErrorResponse(w, http.StatusBadRequest, "Пустой user_id")
-        return
-    }
-    if checkReq.Lat < -90 || checkReq.Lat > 90 {
-        // return errors.New("invalid latitude")
+		return
+	}
+	if checkReq.Lat < -90 || checkReq.Lat > 90 {
 		common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный или пустой lat")
-        return
-    }
-    if checkReq.Lon < -180 || checkReq.Lon > 180 {
-        // return errors.New("invalid longitude")
+		return
+	}
+	if checkReq.Lon < -180 || checkReq.Lon > 180 {
 		common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный или пустой lan")
-        return
-    }
+		return
+	}
 
-	// 3. Применяем алгоритм для нахождения ближайших зон
-	incidents, err := h.services.CheckLocation(checkReq)
+	incidents, err := h.services.CheckLocation(context.Background(), checkReq)
 	if err != nil {
 		common.WriteErrorResponse(w, http.StatusInternalServerError, "Не удалось получить информацию о ближайших опасных зонах")
 		return
 	}
-
-	// 4. Возвращаем ответ
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(incidents)
@@ -56,10 +48,10 @@ func (h *Handler) CreateIncidentHandler(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	var incidentData models.IncidentRequest
-    if err := json.NewDecoder(r.Body).Decode(&incidentData); err != nil {
-        common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный запрос")
-        return
-    }
+	if err := json.NewDecoder(r.Body).Decode(&incidentData); err != nil {
+		common.WriteErrorResponse(w, http.StatusBadRequest, "Неверный запрос")
+		return
+	}
 
 	err := h.services.CreateIncident(incidentData)
 	if err != nil {
@@ -68,7 +60,6 @@ func (h *Handler) CreateIncidentHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusOK)
-	// json.NewEncoder(w).Encode(info)
 }
 
 func (h *Handler) ListIncidents(w http.ResponseWriter, r *http.Request) {
@@ -157,27 +148,27 @@ func (h *Handler) DeleteIncident(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
+	ctx := r.Context()
 
-    resp, err := h.services.GetIncidentStats(ctx)
-    if err != nil {
-        http.Error(w, "failed to get stats", http.StatusInternalServerError)
-        return
-    }
+	resp, err := h.services.GetIncidentStats(ctx)
+	if err != nil {
+		http.Error(w, "failed to get stats", http.StatusInternalServerError)
+		return
+	}
 
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(resp)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	resp := h.services.HealthService.Check(r.Context())
 
-    code := http.StatusOK
-    if resp.Status != models.HealthOK {
-        code = http.StatusServiceUnavailable
-    }
+	code := http.StatusOK
+	if resp.Status != models.HealthOK {
+		code = http.StatusServiceUnavailable
+	}
 
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(code)
-    json.NewEncoder(w).Encode(resp)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(resp)
 }

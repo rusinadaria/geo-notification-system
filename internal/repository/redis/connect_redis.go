@@ -1,11 +1,10 @@
 package redis
 
 import (
+	"context"
+	"fmt"
 	"github.com/redis/go-redis/v9"
 	"github.com/rusinadaria/geo-notification-system/internal/config"
-	// "time"
-	"fmt"
-	"context"
 )
 
 type RedisClient struct {
@@ -31,10 +30,10 @@ func NewClient(ctx context.Context, cfg config.RedisConfig) (*RedisClient, error
 	return &RedisClient{client: client}, nil
 }
 
+func (r *RedisClient) Client() *redis.Client {
+	return r.client
+}
+
 func (r *RedisClient) Ping(ctx context.Context) error {
 	return r.client.Ping(ctx).Err()
 }
-
-
-// var _ repository.RedisPinger = (*RedisClient)(nil)
-

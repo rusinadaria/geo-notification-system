@@ -1,16 +1,15 @@
 package services
 
 import (
-	"github.com/rusinadaria/geo-notification-system/internal/repository"
-	"github.com/rusinadaria/geo-notification-system/internal/models"
-	// "github.com/rusinadaria/geo-notification-system/internal/queue"
 	"context"
+	"github.com/rusinadaria/geo-notification-system/internal/models"
+	"github.com/rusinadaria/geo-notification-system/internal/repository"
 )
 
 //go:generate mockgen -source=service.go -destination=mocks/mock.go
 
 type Incident interface {
-	CheckLocation(checkReq models.LocationCheckRequest) (models.LocationCheckResponse, error)
+	CheckLocation(ctx context.Context, checkReq models.LocationCheckRequest) (models.LocationCheckResponse, error)
 	CreateIncident(incidentData models.IncidentRequest) error
 	GetAllIncidents(limit, offset int) ([]models.IncidentResponse, error)
 	GetIncidentById(id int) (models.IncidentResponse, error)
@@ -20,29 +19,22 @@ type Incident interface {
 }
 
 type HealthService interface {
-    Check(ctx context.Context) models.HealthResponse
+	Check(ctx context.Context) models.HealthResponse
 }
 
-// type WebhookQueue interface {
-// 	Enqueue(payload models.WebhookPayload) error
-// }
+type WebhookQueue interface {
+	Enqueue(ctx context.Context, job models.WebhookPayload) error
+}
 
 type Service struct {
 	Incident
 	HealthService
-	// WebhookQueue
+	WebhookQueue
 }
 
-func NewService(repos *repository.Repository, windowMin int) *Service {
+func NewService(repos *repository.Repository, windowMin int, webhookQueue WebhookQueue) *Service {
 	return &Service{
-		Incident: NewIncidentService(repos.Incident, windowMin),
+		Incident:      NewIncidentService(repos.Incident, windowMin, webhookQueue),
 		HealthService: NewHealthService(repos.DB, repos.Redis),
 	}
 }
-
-// func NewService(repos *repository.Repository,  webhookQueue queue.WebhookQueue) *Service {
-// 	return &Service{
-// 		Incident: NewIncidentService(repos.Incident),
-// 		WebhookQueue: &webhookQueue,
-// 	}
-// }
