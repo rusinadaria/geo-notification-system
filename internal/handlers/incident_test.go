@@ -51,6 +51,42 @@ func TestHandler_CreateIncident(t *testing.T) {
 			},
 			expectedStatusCode: 200,
 		},
+		{
+			name:               "Invalid JSON",
+			inputBody:          `{ "type": "danger", `,
+			mockBehavior:       func(s *mock_service.MockIncident, req models.IncidentRequest) {},
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "Empty body",
+			inputBody:          ``,
+			mockBehavior:       func(s *mock_service.MockIncident, req models.IncidentRequest) {},
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name: "Service error",
+			inputBody: `{
+				"type": "danger",
+				"description": "desc",
+				"latitude": 55.751244,
+				"longitude": 37.618423,
+				"radius_meters": 100,
+				"active": true
+			}`,
+			inputReq: models.IncidentRequest{
+				Type:         "danger",
+				Description:  "desc",
+				Latitude:     55.751244,
+				Longitude:    37.618423,
+				RadiusMeters: 100,
+				Active:       true,
+			},
+			mockBehavior: func(s *mock_service.MockIncident, req models.IncidentRequest) {
+				s.EXPECT().CreateIncident(req).
+					Return(errors.New("service error"))
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+		},
 	}
 
 	for _, testCase := range testTable {
