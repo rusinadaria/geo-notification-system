@@ -5,13 +5,13 @@ import (
 )
 
 type WebhookPayload struct {
-	Event     string                   `json:"event"`
-	UserID    int                      `json:"user_id"`
-	Lat       float64                  `json:"lat"`
-	Lon       float64                  `json:"lon"`
-	Incidents []NearbyIncidentResponse `json:"incidents"`
-	CheckedAt time.Time                `json:"checked_at"`
-	RetryCount  int         `json:"retry_count,omitempty"` // новое поле
+	Event      string                   `json:"event"`
+	UserID     int                      `json:"user_id"`
+	Lat        float64                  `json:"lat"`
+	Lon        float64                  `json:"lon"`
+	Incidents  []NearbyIncidentResponse `json:"incidents"`
+	CheckedAt  time.Time                `json:"checked_at"`
+	RetryCount int                      `json:"retry_count,omitempty"`
 }
 
 type LocationCheckResponse struct {

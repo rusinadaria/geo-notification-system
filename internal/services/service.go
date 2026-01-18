@@ -9,13 +9,16 @@ import (
 //go:generate mockgen -destination=./mocks/mock.go -source=service.go -package=mocks
 
 type Incident interface {
-	CheckLocation(ctx context.Context, checkReq models.LocationCheckRequest) (models.LocationCheckResponse, error)
 	CreateIncident(incidentData models.IncidentRequest) error
 	GetAllIncidents(limit, offset int) ([]models.IncidentResponse, error)
 	GetIncidentById(id int) (models.IncidentResponse, error)
 	UpdateIncident(id int, req models.IncidentRequest) (models.IncidentResponse, error)
 	DeleteIncident(id int) error
 	GetIncidentStats(ctx context.Context) (models.IncidentStatsResponse, error)
+}
+
+type LocationService interface {
+	CheckLocation(ctx context.Context, checkReq models.LocationCheckRequest) (models.LocationCheckResponse, error)
 }
 
 type HealthService interface {
@@ -29,12 +32,14 @@ type WebhookQueue interface {
 type Service struct {
 	Incident
 	HealthService
+	LocationService
 	WebhookQueue
 }
 
 func NewService(repos *repository.Repository, windowMin int, webhookQueue WebhookQueue) *Service {
 	return &Service{
-		Incident:      NewIncidentService(repos.Incident, windowMin, webhookQueue),
-		HealthService: NewHealthService(repos.DB, repos.Redis),
+		Incident:        NewIncidentService(repos.Incident, windowMin, webhookQueue),
+		HealthService:   NewHealthService(repos.DB, repos.Redis),
+		LocationService: NewLocationCheckService(repos.LocationCheck, webhookQueue),
 	}
 }

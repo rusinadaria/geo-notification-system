@@ -8,8 +8,6 @@ import (
 )
 
 type Incident interface {
-	CheckLocation(checkReq models.LocationCheckRequest) (models.LocationCheckResponse, error)
-	SaveCheck(userID int, lat, lon float64, hasDanger bool) error
 	CreateIncident(incident models.IncidentRequest) error
 	GetAllIncidents(limit, offset int) ([]models.IncidentResponse, error)
 	GetIncidentById(id int) (models.IncidentResponse, error)
@@ -17,6 +15,11 @@ type Incident interface {
 	DeleteIncident(id int) error
 	GetDangerStats(ctx context.Context, window time.Duration) (int64, error)
 	GetActiveIncidents(ctx context.Context) ([]models.IncidentResponse, error)
+}
+
+type LocationCheck interface {
+	CheckLocation(checkReq models.LocationCheckRequest) (models.LocationCheckResponse, error)
+	SaveCheck(userID int, lat, lon float64, hasDanger bool) error
 }
 
 type IncidentCache interface {
@@ -35,14 +38,16 @@ type Redis interface {
 
 type Repository struct {
 	Incident
+	LocationCheck
 	DB
 	Redis
 }
 
 func NewRepository(db *sqlx.DB, redis RedisPinger) *Repository {
 	return &Repository{
-		Incident: NewIncidentPostgres(db),
-		DB:       db,
-		Redis:    redis,
+		Incident:      NewIncidentPostgres(db),
+		LocationCheck: NewLocationCheckPostgres(db),
+		DB:            db,
+		Redis:         redis,
 	}
 }

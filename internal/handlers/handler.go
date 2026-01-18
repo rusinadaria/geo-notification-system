@@ -24,6 +24,7 @@ func (h *Handler) InitRoutes(cfg *config.Config, logger *slog.Logger) http.Handl
 
 		// Публичный эндпоинт
 		r.Post("/location/check", h.CheckLocation)
+
 		r.Get("/system/health", h.HealthCheck)
 
 		// CRUD для инцидентов
