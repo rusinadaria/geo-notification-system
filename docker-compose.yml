@@ -5,7 +5,7 @@ services:
       build: .
       container_name: geo-core-service
       env_file:
-      - ./internal/cmd/.env
+      - ./cmd/.env
       ports:
         - "8080:8080"
       depends_on:

@@ -1,4 +1,4 @@
-## Тестовое задание на позицию Intern Golang Develop в Red Collar
+## Тестовое задание на позицию Intern Golang Developer в Red Collar
 
 ### Инструкция по запуску 
 1. Склонируйте репозиторий
