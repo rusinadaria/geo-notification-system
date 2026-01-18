@@ -6,7 +6,7 @@ import (
 	"github.com/rusinadaria/geo-notification-system/internal/repository"
 )
 
-//go:generate mockgen -source=service.go -destination=mocks/mock.go
+//go:generate mockgen -destination=./mocks/mock.go -source=service.go -package=mocks
 
 type Incident interface {
 	CheckLocation(ctx context.Context, checkReq models.LocationCheckRequest) (models.LocationCheckResponse, error)
