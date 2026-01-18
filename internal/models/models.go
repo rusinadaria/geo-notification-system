@@ -11,6 +11,7 @@ type WebhookPayload struct {
 	Lon       float64                  `json:"lon"`
 	Incidents []NearbyIncidentResponse `json:"incidents"`
 	CheckedAt time.Time                `json:"checked_at"`
+	RetryCount  int         `json:"retry_count,omitempty"` // новое поле
 }
 
 type LocationCheckResponse struct {

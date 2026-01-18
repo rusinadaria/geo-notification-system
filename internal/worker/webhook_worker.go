@@ -57,18 +57,26 @@ func (w *WebhookWorker) send(job models.WebhookPayload) {
 	client := &http.Client{Timeout: 5 * time.Second}
 
 	resp, err := client.Do(req)
-	if err != nil {
+	if err != nil || resp.StatusCode >= 300 {
 		log.Println("webhook http error:", err)
+		if job.RetryCount < 5 { // максимум 5 попыток
+			job.RetryCount++
+			delay := time.Duration(job.RetryCount*2) * time.Second // экспоненциальная задержка: 2s,4s,6s,8s,10s
+			go w.retryLater(job, delay)
+		} else {
+			log.Println("webhook failed permanently:", job)
+		}
 		return
 	}
 	defer resp.Body.Close()
 
-	log.Println("webhook response status:", resp.Status)
-
-	if resp.StatusCode >= 300 {
-		log.Println("webhook failed, retry later")
-		return
-	}
-
 	log.Println("webhook delivered successfully")
+}
+
+func (w *WebhookWorker) retryLater(job models.WebhookPayload, delay time.Duration) {
+	time.Sleep(delay)
+	data, _ := json.Marshal(job)
+	if err := w.client.LPush(context.Background(), "webhooks:queue", data).Err(); err != nil {
+		log.Println("failed to enqueue webhook retry:", err)
+	}
 }
